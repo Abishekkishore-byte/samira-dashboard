@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <script>
+    /* set theme before first paint to avoid a flash */
+    (function () {
+      try { document.documentElement.setAttribute("data-theme", localStorage.getItem("samira-theme") || "dark"); }
+      catch (e) { document.documentElement.setAttribute("data-theme", "dark"); }
+    })();
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Samira — live air purification monitoring console. Real-time air quality, filtration performance, filter health and multi-unit network status." />
+  <meta name="theme-color" content="#0b0f14" />
+  <title>Samira · Air Purification Console</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css?v=2" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%230b0f14'/%3E%3Ccircle cx='16' cy='16' r='7' fill='none' stroke='%232dd4bf' stroke-width='2.5'/%3E%3Ccircle cx='16' cy='16' r='2.6' fill='%232dd4bf'/%3E%3C/svg%3E" />
+</head>
+<body>
+  <!-- ============ TOP BAR ============ -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand__mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" width="28" height="28">
+          <circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" stroke-width="1.2" opacity=".35"/>
+          <circle cx="16" cy="16" r="8"  fill="none" stroke="currentColor" stroke-width="1.6"/>
+          <circle cx="16" cy="16" r="3"  fill="currentColor"/>
+        </svg>
+      </span>
+      <div class="brand__text">
+        <span class="brand__name">SAMIRA</span>
+        <span class="brand__sub">Air Purification Console</span>
+      </div>
+    </div>
+
+    <div class="topbar__center">
+      <label class="unit-picker">
+        <span class="unit-picker__label">Unit</span>
+        <select id="unitSelect" aria-label="Select Samira unit"></select>
+      </label>
+    </div>
+
+    <div class="topbar__right">
+      <div class="mode-switch" role="group" aria-label="Operating mode">
+        <button class="mode-switch__btn is-active" data-mode="auto" id="modeAuto">Auto</button>
+        <button class="mode-switch__btn" data-mode="manual" id="modeManual">Manual</button>
+      </div>
+      <div class="conn" id="connStatus" title="Telemetry link">
+        <span class="conn__dot"></span>
+        <span class="conn__label">Live</span>
+      </div>
+      <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle light / dark theme" title="Toggle light / dark">
+        <svg class="ic-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        <svg class="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.4M12 19.6V22M4.2 4.2l1.7 1.7M18.1 18.1l1.7 1.7M2 12h2.4M19.6 12H22M4.2 19.8l1.7-1.7M18.1 5.9l1.7-1.7"/></svg>
+      </button>
+      <div class="clock" id="clock">--:--:--</div>
+    </div>
+  </header>
+
+  <main class="wrap">
+
+    <!-- ============ 1 · LIVE AIR QUALITY (HERO) ============ -->
+    <section class="panel panel--hero" aria-labelledby="h-live">
+      <div class="panel__head">
+        <h2 class="panel__title" id="h-live">Live Air Quality</h2>
+        <span class="panel__meta" id="liveMeta">Sampling every 2s</span>
+      </div>
+
+      <div class="hero">
+        <!-- pre filter -->
+        <div class="gauge-block">
+          <div class="gauge-block__cap">Intake · pre-filter</div>
+          <div class="gauge" id="gaugePre"></div>
+          <div class="gauge-block__band" id="preBand">—</div>
+        </div>
+
+        <!-- flow / efficiency -->
+        <div class="flow">
+          <div class="flow__viz" id="flowViz" aria-hidden="true">
+            <span class="flow__dot"></span><span class="flow__dot"></span><span class="flow__dot"></span>
+            <span class="flow__dot"></span><span class="flow__dot"></span>
+          </div>
+          <div class="flow__eff">
+            <span class="flow__eff-val" id="effVal">—</span>
+            <span class="flow__eff-lab">purification efficiency</span>
+          </div>
+          <div class="flow__stack" id="filterStackMini" aria-hidden="true"></div>
+        </div>
+
+        <!-- post filter -->
+        <div class="gauge-block">
+          <div class="gauge-block__cap">Output · post-filter</div>
+          <div class="gauge" id="gaugePost"></div>
+          <div class="gauge-block__band" id="postBand">—</div>
+        </div>
+      </div>
+
+      <div class="gaslist" id="gasList"></div>
+    </section>
+
+    <!-- ============ ROW: ENV · FAN · FILTERS ============ -->
+    <div class="grid grid--3">
+
+      <!-- 2 · ENVIRONMENT -->
+      <section class="panel" aria-labelledby="h-env">
+        <div class="panel__head">
+          <h2 class="panel__title" id="h-env">Environment</h2>
+          <span class="panel__meta">DHT22</span>
+        </div>
+        <div class="env">
+          <div class="env__item">
+            <div class="env__row">
+              <span class="env__val" id="tempVal">—</span>
+              <span class="env__unit">°C</span>
+              <span class="trend" id="tempTrend"></span>
+            </div>
+            <div class="env__lab">Temperature</div>
+            <div class="spark" id="tempSpark"></div>
+          </div>
+          <div class="env__divider"></div>
+          <div class="env__item">
+            <div class="env__row">
+              <span class="env__val" id="humVal">—</span>
+              <span class="env__unit">%</span>
+              <span class="trend" id="humTrend"></span>
+            </div>
+            <div class="env__lab">Relative humidity</div>
+            <div class="spark" id="humSpark"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3 · FAN & OPERATION -->
+      <section class="panel" aria-labelledby="h-fan">
+        <div class="panel__head">
+          <h2 class="panel__title" id="h-fan">Fan &amp; Operation</h2>
+          <span class="panel__meta" id="fanModeMeta">Auto</span>
+        </div>
+        <div class="fan">
+          <div class="fan__dial" id="fanDial"></div>
+          <div class="fan__stats">
+            <div class="kv"><span class="kv__k">Fan speed</span><span class="kv__v"><b id="fanPct">—</b>%</span></div>
+            <div class="kv"><span class="kv__k">Impeller</span><span class="kv__v"><b id="fanRpm">—</b> rpm</span></div>
+            <div class="kv"><span class="kv__k">Residence</span><span class="kv__v"><b id="resMs">—</b> ms</span></div>
+          </div>
+        </div>
+        <div class="ailog">
+          <div class="ailog__head">
+            <span class="ailog__title">AI decision log</span>
+            <span class="ailog__badge" id="aiState">idle</span>
+          </div>
+          <ul class="ailog__list" id="aiLog"></ul>
+        </div>
+      </section>
+
+      <!-- 4 · FILTER HEALTH -->
+      <section class="panel" aria-labelledby="h-filter">
+        <div class="panel__head">
+          <h2 class="panel__title" id="h-filter">Filter Health</h2>
+          <span class="panel__meta" id="filterMeta">5 stages</span>
+        </div>
+        <div class="filters" id="filterList"></div>
+      </section>
+    </div>
+
+    <!-- ============ 5 · HISTORICAL TRENDS ============ -->
+    <section class="panel" aria-labelledby="h-trend">
+      <div class="panel__head">
+        <h2 class="panel__title" id="h-trend">Historical Trends</h2>
+        <div class="trend-controls">
+          <div class="seg" role="group" aria-label="Time window">
+            <button class="seg__btn is-active" data-win="1h">1 hr</button>
+            <button class="seg__btn" data-win="6h">6 hr</button>
+            <button class="seg__btn" data-win="24h">24 hr</button>
+          </div>
+        </div>
+      </div>
+      <div class="chart" id="trendChart"></div>
+      <div class="legend" id="trendLegend"></div>
+    </section>
+
+    <!-- ============ ROW: NETWORK · ALERTS ============ -->
+    <div class="grid grid--2">
+      <!-- 6 · MULTI-UNIT NETWORK -->
+      <section class="panel" aria-labelledby="h-net">
+        <div class="panel__head">
+          <h2 class="panel__title" id="h-net">Unit Network</h2>
+          <span class="panel__meta" id="netMeta">— online</span>
+        </div>
+        <div class="netlist" id="netList"></div>
+        <div class="netfoot">
+          <span class="netfoot__sync" id="netSync"><span class="conn__dot"></span> Mesh sync healthy</span>
+          <span class="netfoot__hard" id="netHardest">—</span>
+        </div>
+      </section>
+
+      <!-- 7 · ALERTS -->
+      <section class="panel" aria-labelledby="h-alert">
+        <div class="panel__head">
+          <h2 class="panel__title" id="h-alert">Alerts &amp; Notifications</h2>
+          <span class="panel__meta"><span class="dot-count" id="alertCount">0</span> active</span>
+        </div>
+        <ul class="alerts" id="alertList"></ul>
+      </section>
+    </div>
+
+    <!-- ============ 8 · SUMMARY STATS ============ -->
+    <section class="panel" aria-labelledby="h-sum">
+      <div class="panel__head">
+        <h2 class="panel__title" id="h-sum">At a Glance</h2>
+        <span class="panel__meta">Lifetime · this unit</span>
+      </div>
+      <div class="stats" id="statList"></div>
+    </section>
+
+    <footer class="foot">
+      <span>Samira Console · demo telemetry feed</span>
+      <span class="foot__by">Deep&nbsp;Pebble</span>
+    </footer>
+  </main>
+
+  <script src="js/data.js?v=2"></script>
+  <script src="js/charts.js?v=2"></script>
+  <script src="js/app.js?v=2"></script>
+</body>
+</html>
